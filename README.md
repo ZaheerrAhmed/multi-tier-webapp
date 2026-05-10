@@ -1,7 +1,5 @@
 # Multi-Tier Web Application — OpsBoard
 
-**Project 1/100** of my real-world DevOps portfolio.
-
 A production-style multi-tier web application provisioned locally with Vagrant and VirtualBox.
 Demonstrates a full DevOps stack: reverse proxy, application server, database, caching, and message brokering — all wired together manually so you understand every layer.
 
@@ -423,7 +421,7 @@ vagrant destroy
 
 ## Project Goals
 
-This is **project 1 of 100** in my DevOps portfolio. Each project targets a different tool or concept:
+Each project in this series targets a different tool or concept:
 
 - Manual provisioning with Vagrant (this project)
 - Automated provisioning with shell scripts
