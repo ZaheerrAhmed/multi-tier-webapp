@@ -1,0 +1,94 @@
+version: "3.9"
+
+# Local Docker alternative to the Vagrant multi-VM setup.
+# Usage:
+#   docker compose up -d          # start everything
+#   docker compose logs -f app    # follow app logs
+#   docker compose down -v        # stop and remove volumes
+
+services:
+
+  db:
+    image: mariadb:10.11
+    container_name: opsboard-db
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: accounts
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: admin123
+    volumes:
+      - db-data:/var/lib/mysql
+      - ./src/main/resources/db_backup.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    networks:
+      - opsboard-net
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--su-mysql", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  memcached:
+    image: memcached:1.6-alpine
+    container_name: opsboard-mc
+    command: memcached -m 64
+    networks:
+      - opsboard-net
+
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    container_name: opsboard-rmq
+    environment:
+      RABBITMQ_DEFAULT_USER: test
+      RABBITMQ_DEFAULT_PASS: test
+    ports:
+      - "15672:15672"   # management UI (optional)
+    networks:
+      - opsboard-net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: opsboard-app
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/accounts
+      SPRING_DATASOURCE_USERNAME: admin
+      SPRING_DATASOURCE_PASSWORD: admin123
+      SPRING_CACHE_TYPE: memcached
+      MEMCACHED_HOST: memcached
+      MEMCACHED_PORT: 11211
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: test
+      RABBITMQ_PASS: test
+    depends_on:
+      db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - opsboard-net
+
+  web:
+    image: nginx:1.25-alpine
+    container_name: opsboard-web
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/opsboard.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+    networks:
+      - opsboard-net
+
+volumes:
+  db-data:
+
+networks:
+  opsboard-net:
+    driver: bridge
